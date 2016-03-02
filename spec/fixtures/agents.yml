@@ -38,13 +38,8 @@ bob_weather_agent:
   schedule: "midnight"
   name: "SF Weather"
   guid: <%= SecureRandom.hex %>
-  keep_events_for: 45
-  options: <%= {
-                 :location => 94102,
-                 :lat => 37.779329,
-                 :lng => -122.41915,
-                 :api_key => 'test'
-               }.to_json.inspect %>
+  keep_events_for: <%= 45.days %>
+  options: <%= { :location => 94102, :lat => 37.779329, :lng => -122.41915, :api_key => 'test' }.to_json.inspect %>
 
 jane_weather_agent:
   type: Agents::WeatherAgent
@@ -52,13 +47,8 @@ jane_weather_agent:
   schedule: "midnight"
   name: "SF Weather"
   guid: <%= SecureRandom.hex %>
-  keep_events_for: 30
-  options: <%= {
-                 :location => 94103,
-                 :lat => 37.779329,
-                 :lng => -122.41915,
-                 :api_key => 'test'
-               }.to_json.inspect %>
+  keep_events_for: <%= 30.days %>
+  options: <%= { :location => 94103, :lat => 37.779329, :lng => -122.41915, :api_key => 'test' }.to_json.inspect %>
 
 jane_rain_notifier_agent:
   type: Agents::TriggerAgent
@@ -104,8 +94,55 @@ bob_twitter_user_agent:
       :oauth_token_secret => "---"
     }.to_json.inspect %>
 
+tectonic_twitter_user_agent:
+  type: Agents::TwitterFavorites
+  user: tectonic
+  name: "tectonic's Twitter Favorites Watcher"
+  guid: <%= SecureRandom.hex %>
+  options: <%= {
+      :username => "tectonic",
+      :expected_update_period_in_days => "2",
+      :consumer_key => "---",
+      :consumer_secret => "---",
+      :oauth_token => "---",
+      :oauth_token_secret => "---"
+    }.to_json.inspect %>
+
 bob_manual_event_agent:
   type: Agents::ManualEventAgent
   user: bob
   name: "Bob's event testing agent"
   guid: <%= SecureRandom.hex %>
+
+bob_basecamp_agent:
+  type: Agents::BasecampAgent
+  user: bob
+  service: generic
+  guid: <%= SecureRandom.hex %>
+
+jane_basecamp_agent:
+  type: Agents::BasecampAgent
+  user: jane
+  service: generic
+  guid: <%= SecureRandom.hex %>
+
+
+bob_data_output_agent:
+  type: Agents::DataOutputAgent
+  user: bob
+  name: RSS Feed 
+  guid: <%= SecureRandom.hex %>
+  options: <%= {
+    expected_receive_period_in_days: 3,
+    secrets: ['secret'],
+    template: {
+      title: 'unchanged',
+      description: 'unchanged',
+      item: {
+        title: 'unchanged',
+        description: 'unchanged',
+        author: 'unchanged',
+        link: 'http://example.com'
+        }
+      }
+    }.to_json.inspect %>

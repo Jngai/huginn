@@ -4,15 +4,24 @@ module Agents
 
     cannot_be_scheduled!
     cannot_create_events!
+    no_bulk_receive!
 
     description <<-MD
-      The EmailAgent sends any events it receives via email immediately.
+      The Email Agent sends any events it receives via email immediately.
 
-      The email will have a `subject` and an optional `headline` before listing the Events.  If the Events' payloads
-      contain a `:message`, that will be highlighted, otherwise everything in their payloads will be shown.
+      You can specify the email's subject line by providing a `subject` option, which can contain Liquid formatting.  E.g.,
+      you could provide `"Huginn email"` to set a simple subject, or `{{subject}}` to use the `subject` key from the incoming Event.
+
+      By default, the email body will contain an optional `headline`, followed by a listing of the Events' keys.
+
+      You can customize the email body by including the optional `body` param.  Like the `subject`, the `body` can be a simple message
+      or a Liquid template.  You could send only the Event's `some_text` field with a `body` set to `{{ some_text }}`.
+      The body can contain simple HTML and will be sanitized.
 
       You can specify one or more `recipients` for the email, or skip the option in order to send the email to your
       account's default email address.
+
+      You can provide a `from` address for the email, or leave it blank to default to the value of `EMAIL_FROM_ADDRESS` (`#{ENV['EMAIL_FROM_ADDRESS']}`).
 
       Set `expected_receive_period_in_days` to the maximum amount of time that you'd expect to pass between Events being received by this Agent.
     MD
@@ -27,9 +36,16 @@ module Agents
 
     def receive(incoming_events)
       incoming_events.each do |event|
-        log "Sending digest mail to #{user.email} with event #{event.id}"
         recipients(event.payload).each do |recipient|
-          SystemMailer.delay.send_message(:to => recipient, :subject => interpolated(event)['subject'], :headline => interpolated(event)['headline'], :groups => [present(event.payload)])
+          log "Sending mail to #{recipient} with event #{event.id}"
+          SystemMailer.send_message(
+            to: recipient,
+            from: interpolated(event)['from'],
+            subject: interpolated(event)['subject'],
+            headline: interpolated(event)['headline'],
+            body: interpolated(event)['body'],
+            groups: [present(event.payload)]
+          ).deliver_later
         end
       end
     end

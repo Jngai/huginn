@@ -1,16 +1,18 @@
-require 'net/ftp'
-require 'net/ftp/list'
 require 'uri'
 require 'time'
 
 module Agents
   class FtpsiteAgent < Agent
     cannot_receive_events!
-
     default_schedule "every_12h"
 
+    gem_dependency_check { defined?(Net::FTP) && defined?(Net::FTP::List) }
+
     description <<-MD
-      The FtpsiteAgent checks a FTP site and creates Events based on newly uploaded files in a directory.
+      The FTP Site Agent checks an FTP site and creates Events based on newly uploaded files in a directory.
+
+      #{'## Include `net-ftp-list` in your Gemfile to use this Agent!' if dependencies_missing?}
+
 
       Specify a `url` that represents a directory of an FTP site to watch, and a list of `patterns` to match against file names.
 
@@ -35,12 +37,12 @@ module Agents
 
     def default_options
       {
-          'expected_update_period_in_days' => "1",
-          'url' => "ftp://example.org/pub/releases/",
-          'patterns' => [
-            'foo-*.tar.gz',
-          ],
-          'after' => Time.now.iso8601,
+        'expected_update_period_in_days' => "1",
+        'url' => "ftp://example.org/pub/releases/",
+        'patterns' => [
+          'foo-*.tar.gz',
+        ],
+        'after' => Time.now.iso8601,
       }
     end
 
@@ -194,7 +196,7 @@ module Agents
     end
 
     def uri_path_escape(string)
-      str = string.dup.force_encoding(Encoding::ASCII_8BIT)  # string.b in Ruby >=2.0
+      str = string.b
       str.gsub!(/([^A-Za-z0-9\-._~!$&()*+,=@]+)/) { |m|
         '%' + m.unpack('H2' * m.bytesize).join('%').upcase
       }

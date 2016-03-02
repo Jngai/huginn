@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'rails_helper'
 require 'ostruct'
 
 describe Agents::PostAgent do
@@ -38,16 +38,19 @@ describe Agents::PostAgent do
       when :get, :delete
         req.data = request.uri.query
       else
-        case request.headers['Content-Type'][/\A[^;\s]+/]
+        content_type = request.headers['Content-Type'][/\A[^;\s]+/]
+        case content_type
         when 'application/x-www-form-urlencoded'
           req.data = request.body
         when 'application/json'
           req.data = ActiveSupport::JSON.decode(request.body)
+        when 'text/xml'
+          req.data = Hash.from_xml(request.body)
         else
           raise "unexpected Content-Type: #{content_type}"
         end
       end
-      { status: 200, body: "ok" }
+      { status: 200, body: "<html>a webpage!</html>", headers: { 'Content-Type' => 'text/html' } }
     }
   end
 
@@ -57,10 +60,10 @@ describe Agents::PostAgent do
     it "can make requests of each type" do
       %w[get put post patch delete].each.with_index(1) do |verb, index|
         @checker.options['method'] = verb
-        @checker.should be_valid
+        expect(@checker).to be_valid
         @checker.check
-        @requests.should == index
-        @sent_requests[verb.to_sym].length.should == 1
+        expect(@requests).to eq(index)
+        expect(@sent_requests[verb.to_sym].length).to eq(1)
       end
     end
   end
@@ -75,26 +78,26 @@ describe Agents::PostAgent do
         'default' => 'value2'
       }
 
-      lambda {
-        lambda {
+      expect {
+        expect {
           @checker.receive([@event, event1])
-        }.should change { @sent_requests[:post].length }.by(2)
-      }.should_not change { @sent_requests[:get].length }
+        }.to change { @sent_requests[:post].length }.by(2)
+      }.not_to change { @sent_requests[:get].length }
 
-      @sent_requests[:post][0].data.should == @event.payload.merge('default' => 'value').to_query
-      @sent_requests[:post][1].data.should == event1.payload.to_query
+      expect(@sent_requests[:post][0].data).to eq(@event.payload.merge('default' => 'value').to_query)
+      expect(@sent_requests[:post][1].data).to eq(event1.payload.to_query)
     end
 
     it "can make GET requests" do
       @checker.options['method'] = 'get'
 
-      lambda {
-        lambda {
+      expect {
+        expect {
           @checker.receive([@event])
-        }.should change { @sent_requests[:get].length }.by(1)
-      }.should_not change { @sent_requests[:post].length }
+        }.to change { @sent_requests[:get].length }.by(1)
+      }.not_to change { @sent_requests[:post].length }
 
-      @sent_requests[:get][0].data.should == @event.payload.merge('default' => 'value').to_query
+      expect(@sent_requests[:get][0].data).to eq(@event.payload.merge('default' => 'value').to_query)
     end
 
     it "can make a GET request merging params in post_url, payload and event" do
@@ -107,7 +110,7 @@ describe Agents::PostAgent do
       @checker.receive([@event])
       uri = @sent_requests[:get].first.uri
       # parameters are alphabetically sorted by Faraday
-      uri.request_uri.should == "/a/path?another_param=another_value&default=value&existing_param=existing_value&some_param=some_value"
+      expect(uri.request_uri).to eq("/a/path?another_param=another_value&default=value&existing_param=existing_value&some_param=some_value")
     end
 
     it "can skip merging the incoming event when no_merge is set, but it still interpolates" do
@@ -116,7 +119,7 @@ describe Agents::PostAgent do
         'key' => 'it said: {{ someotherkey.somekey }}'
       }
       @checker.receive([@event])
-      @sent_requests[:post].first.data.should == { 'key' => 'it said: value' }.to_query
+      expect(@sent_requests[:post].first.data).to eq({ 'key' => 'it said: value' }.to_query)
     end
 
     it "interpolates when receiving a payload" do
@@ -127,140 +130,212 @@ describe Agents::PostAgent do
       }
       @checker.receive([@event])
       uri = @sent_requests[:post].first.uri
-      uri.scheme.should == 'https'
-      uri.host.should == 'google.com'
-      uri.path.should == '/a_variable'
-      uri.query.should == "existing_param=existing_value"
+      expect(uri.scheme).to eq('https')
+      expect(uri.host).to eq('google.com')
+      expect(uri.path).to eq('/a_variable')
+      expect(uri.query).to eq("existing_param=existing_value")
     end
   end
 
   describe "#check" do
     it "sends options['payload'] as a POST request" do
-      lambda {
+      expect {
         @checker.check
-      }.should change { @sent_requests[:post].length }.by(1)
+      }.to change { @sent_requests[:post].length }.by(1)
 
-      @sent_requests[:post][0].data.should == @checker.options['payload'].to_query
+      expect(@sent_requests[:post][0].data).to eq(@checker.options['payload'].to_query)
     end
 
     it "sends options['payload'] as JSON as a POST request" do
       @checker.options['content_type'] = 'json'
-      lambda {
+      expect {
         @checker.check
-      }.should change { @sent_requests[:post].length }.by(1)
+      }.to change { @sent_requests[:post].length }.by(1)
 
-      @sent_requests[:post][0].data.should == @checker.options['payload']
+      expect(@sent_requests[:post][0].data).to eq(@checker.options['payload'])
+    end
+
+    it "sends options['payload'] as XML as a POST request" do
+      @checker.options['content_type'] = 'xml'
+      expect {
+        @checker.check
+      }.to change { @sent_requests[:post].length }.by(1)
+
+      expect(@sent_requests[:post][0].data.keys).to eq([ 'post' ])
+      expect(@sent_requests[:post][0].data['post']).to eq(@checker.options['payload'])
+    end
+
+    it "sends options['payload'] as XML with custom root element name, as a POST request" do
+      @checker.options['content_type'] = 'xml'
+      @checker.options['xml_root'] = 'foobar'
+      expect {
+        @checker.check
+      }.to change { @sent_requests[:post].length }.by(1)
+
+      expect(@sent_requests[:post][0].data.keys).to eq([ 'foobar' ])
+      expect(@sent_requests[:post][0].data['foobar']).to eq(@checker.options['payload'])
     end
 
     it "sends options['payload'] as a GET request" do
       @checker.options['method'] = 'get'
-      lambda {
-        lambda {
+      expect {
+        expect {
           @checker.check
-        }.should change { @sent_requests[:get].length }.by(1)
-      }.should_not change { @sent_requests[:post].length }
+        }.to change { @sent_requests[:get].length }.by(1)
+      }.not_to change { @sent_requests[:post].length }
 
-      @sent_requests[:get][0].data.should == @checker.options['payload'].to_query
+      expect(@sent_requests[:get][0].data).to eq(@checker.options['payload'].to_query)
+    end
+
+    describe "emitting events" do
+      context "when emit_events is not set to true" do
+        it "does not emit events" do
+          expect {
+            @checker.check
+          }.not_to change { @checker.events.count }
+        end
+      end
+
+      context "when emit_events is set to true" do
+        before do
+          @checker.options['emit_events'] = 'true'
+          @checker.save!
+        end
+
+        it "emits the response status" do
+          expect {
+            @checker.check
+          }.to change { @checker.events.count }.by(1)
+          expect(@checker.events.last.payload['status']).to eq 200
+        end
+
+        it "emits the body" do
+          @checker.check
+          expect(@checker.events.last.payload['body']).to eq '<html>a webpage!</html>'
+        end
+
+        it "emits the response headers" do
+          @checker.check
+          expect(@checker.events.last.payload['headers']).to eq({ 'Content-Type' => 'text/html' })
+        end
+      end
     end
   end
 
   describe "#working?" do
     it "checks if events have been received within expected receive period" do
-      @checker.should_not be_working
+      expect(@checker).not_to be_working
       Agents::PostAgent.async_receive @checker.id, [@event.id]
-      @checker.reload.should be_working
+      expect(@checker.reload).to be_working
       two_days_from_now = 2.days.from_now
       stub(Time).now { two_days_from_now }
-      @checker.reload.should_not be_working
+      expect(@checker.reload).not_to be_working
     end
   end
 
   describe "validation" do
     before do
-      @checker.should be_valid
+      expect(@checker).to be_valid
     end
 
     it "should validate presence of post_url" do
       @checker.options['post_url'] = ""
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
     end
 
     it "should validate presence of expected_receive_period_in_days" do
       @checker.options['expected_receive_period_in_days'] = ""
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
     end
 
     it "should validate method as post, get, put, patch, or delete, defaulting to post" do
       @checker.options['method'] = ""
-      @checker.method.should == "post"
-      @checker.should be_valid
+      expect(@checker.method).to eq("post")
+      expect(@checker).to be_valid
 
       @checker.options['method'] = "POST"
-      @checker.method.should == "post"
-      @checker.should be_valid
+      expect(@checker.method).to eq("post")
+      expect(@checker).to be_valid
 
       @checker.options['method'] = "get"
-      @checker.method.should == "get"
-      @checker.should be_valid
+      expect(@checker.method).to eq("get")
+      expect(@checker).to be_valid
 
       @checker.options['method'] = "patch"
-      @checker.method.should == "patch"
-      @checker.should be_valid
+      expect(@checker.method).to eq("patch")
+      expect(@checker).to be_valid
 
       @checker.options['method'] = "wut"
-      @checker.method.should == "wut"
-      @checker.should_not be_valid
+      expect(@checker.method).to eq("wut")
+      expect(@checker).not_to be_valid
     end
 
     it "should validate that no_merge is 'true' or 'false', if present" do
       @checker.options['no_merge'] = ""
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['no_merge'] = "true"
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['no_merge'] = "false"
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['no_merge'] = false
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['no_merge'] = true
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['no_merge'] = 'blarg'
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
     end
 
     it "should validate payload as a hash, if present" do
       @checker.options['payload'] = ""
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['payload'] = "hello"
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
 
       @checker.options['payload'] = ["foo", "bar"]
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
 
       @checker.options['payload'] = { 'this' => 'that' }
-      @checker.should be_valid
+      expect(@checker).to be_valid
     end
 
     it "requires headers to be a hash, if present" do
       @checker.options['headers'] = [1,2,3]
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
 
       @checker.options['headers'] = "hello world"
-      @checker.should_not be_valid
+      expect(@checker).not_to be_valid
 
       @checker.options['headers'] = ""
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['headers'] = {}
-      @checker.should be_valid
+      expect(@checker).to be_valid
 
       @checker.options['headers'] = { "Authorization" => "foo bar" }
-      @checker.should be_valid
+      expect(@checker).to be_valid
+    end
+
+    it "requires emit_events to be true or false" do
+      @checker.options['emit_events'] = 'what?'
+      expect(@checker).not_to be_valid
+
+      @checker.options.delete('emit_events')
+      expect(@checker).to be_valid
+
+      @checker.options['emit_events'] = 'true'
+      expect(@checker).to be_valid
+
+      @checker.options['emit_events'] = 'false'
+      expect(@checker).to be_valid
+
+      @checker.options['emit_events'] = true
+      expect(@checker).to be_valid
     end
   end
 end

@@ -7,7 +7,7 @@ module Agents
     cannot_create_events!
 
     description <<-MD
-      The EmailDigestAgent collects any Events sent to it and sends them all via email when scheduled.
+      The Email Digest Agent collects any Events sent to it and sends them all via email when scheduled.
 
       By default, the will have a `subject` and an optional `headline` before listing the Events.  If the Events'
       payloads contain a `message`, that will be highlighted, otherwise everything in
@@ -15,6 +15,8 @@ module Agents
 
       You can specify one or more `recipients` for the email, or skip the option in order to send the email to your
       account's default email address.
+
+      You can provide a `from` address for the email, or leave it blank to default to the value of `EMAIL_FROM_ADDRESS` (`#{ENV['EMAIL_FROM_ADDRESS']}`).
 
       Set `expected_receive_period_in_days` to the maximum amount of time that you'd expect to pass between Events being received by this Agent.
     MD
@@ -40,9 +42,15 @@ module Agents
       if self.memory['queue'] && self.memory['queue'].length > 0
         ids = self.memory['events'].join(",")
         groups = self.memory['queue'].map { |payload| present(payload) }
-        log "Sending digest mail to #{user.email} with events [#{ids}]"
         recipients.each do |recipient|
-          SystemMailer.delay.send_message(:to => recipient, :subject => interpolated['subject'], :headline => interpolated['headline'], :groups => groups)
+          log "Sending digest mail to #{recipient} with events [#{ids}]"
+          SystemMailer.send_message(
+            to: recipient,
+            from: interpolated['from'],
+            subject: interpolated['subject'],
+            headline: interpolated['headline'],
+            groups: groups
+          ).deliver_later
         end
         self.memory['queue'] = []
         self.memory['events'] = []
