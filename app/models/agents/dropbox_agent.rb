@@ -35,12 +35,12 @@ module Agents
 
     def dropbox_request(interpolated_event)
       source_url = interpolated_event[:source_url]
-      dropbox = DropboxStream.new()
+      stream = DropboxStream.new()
 
       log("Streaming '#{source_url}' to Dropbox.")
       request = HTTParty::Request.new(Net::HTTP::Get, source_url)
-      request.perform { |chunk| dropbox.send(chunk) }
-      dropbox.done(URI.parse(source_url).path)
+      request.perform { |chunk| stream.send(chunk) }
+      stream.done(URI.parse(source_url).path)
     end
   end
 end
