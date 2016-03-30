@@ -1,4 +1,5 @@
 class UserCredentialsController < ApplicationController
+  require 'json'
   include SortableTable
 
   def index
@@ -11,6 +12,25 @@ class UserCredentialsController < ApplicationController
       format.json {
         send_data Utils.pretty_jsonify(@user_credentials.limit(nil).as_json), disposition: 'attachment'
       }
+    end
+  end
+
+  def import
+    uploaded_io = params[:file]
+    File.open(Rails.root.join('public', 'uploads', uploaded_io.original_filename), 'wb') do |file|
+      file.write(uploaded_io.read)
+    end
+
+    file = File.join(Rails.root, 'public', 'uploads', uploaded_io.original_filename)
+    lines = File.read(file)
+    content = JSON.parse(lines)
+    content.each do |hash|
+      @user_credential = UserCredential.create(hash)
+    end
+
+    respond_to do |format|
+      format.html { redirect_to user_credentials_path, notice: 'the file was successfully uploaded.' }
+      format.json { render json: @user_credential }
     end
   end
 

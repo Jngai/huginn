@@ -1,7 +1,9 @@
 class UserCredential < ActiveRecord::Base
+  require 'json'
+
   MODES = %w[text java_script]
 
-  attr_accessible :credential_name, :credential_value, :mode
+  attr_accessible :credential_name, :credential_value, :mode, :id, :user_id, :created_at, :updated_at
 
   belongs_to :user
 
