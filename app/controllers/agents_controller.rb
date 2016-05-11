@@ -8,10 +8,24 @@ class AgentsController < ApplicationController
 
     @agents = current_user.agents.preload(:scenarios, :controllers).reorder(table_sort).page(params[:page])
 
+    if show_only_enabled_agents?
+      @agents = @agents.where(disabled: false)
+    end
+
     respond_to do |format|
       format.html
       format.json { render json: @agents }
     end
+  end
+
+  def toggle_visibility
+    if show_only_enabled_agents?
+      mark_all_agents_viewable
+    else
+      set_only_enabled_agents_as_viewable
+    end
+
+    redirect_to agents_path
   end
 
   def handle_details_post
@@ -113,11 +127,15 @@ class AgentsController < ApplicationController
   end
 
   def propagate
-    details = Agent.receive! # Eventually this should probably be scoped to the current_user.
-
     respond_to do |format|
-      format.html { redirect_back "Queued propagation calls for #{details[:event_count]} event(s) on #{details[:agent_count]} agent(s)" }
-      format.json { head :ok }
+      if AgentPropagateJob.can_enqueue?
+        details = Agent.receive! # Eventually this should probably be scoped to the current_user.
+        format.html { redirect_back "Queued propagation calls for #{details[:event_count]} event(s) on #{details[:agent_count]} agent(s)" }
+        format.json { head :ok }
+      else
+        format.html { redirect_back "Event propagation is already scheduled to run." }
+        format.json { head :locked }
+      end
     end
   end
 
@@ -252,5 +270,21 @@ class AgentsController < ApplicationController
     if @agent.present? && @agent.is_form_configurable?
       @agent = FormConfigurableAgentPresenter.new(@agent, view_context)
     end
+  end
+
+  private
+  def show_only_enabled_agents?
+    !!cookies[:huginn_view_only_enabled_agents]
+  end
+
+  def set_only_enabled_agents_as_viewable
+    cookies[:huginn_view_only_enabled_agents] = {
+      value: "true",
+      expires: 1.year.from_now
+    }
+  end
+
+  def mark_all_agents_viewable
+    cookies.delete(:huginn_view_only_enabled_agents)
   end
 end

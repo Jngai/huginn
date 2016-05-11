@@ -10,6 +10,7 @@ Huginn::Application.routes.draw do
     end
 
     collection do
+      put :toggle_visibility
       post :propagate
       get :type_details
       post :dry_run
@@ -48,7 +49,11 @@ Huginn::Application.routes.draw do
     resource :diagram, :only => [:show]
   end
 
-  resources :user_credentials, :except => :show
+  resources :user_credentials, :except => :show do
+    collection do
+      post :import
+    end
+  end
 
   resources :services, :only => [:index, :destroy] do
     member do
