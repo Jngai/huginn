@@ -1,3 +1,5 @@
+require 'agents_exporter'
+
 class ScenariosController < ApplicationController
   include SortableTable
   skip_before_action :authenticate_user!, only: :export
@@ -69,7 +71,7 @@ class ScenariosController < ApplicationController
   end
 
   def create
-    @scenario = current_user.scenarios.build(params[:scenario])
+    @scenario = current_user.scenarios.build(scenario_params)
 
     respond_to do |format|
       if @scenario.save
@@ -86,7 +88,7 @@ class ScenariosController < ApplicationController
     @scenario = current_user.scenarios.find(params[:id])
 
     respond_to do |format|
-      if @scenario.update_attributes(params[:scenario])
+      if @scenario.update_attributes(scenario_params)
         format.html { redirect_to @scenario, notice: 'This Scenario was successfully updated.' }
         format.json { head :no_content }
       else
@@ -114,5 +116,12 @@ class ScenariosController < ApplicationController
       format.html { redirect_to scenarios_path }
       format.json { head :no_content }
     end
+  end
+
+  private
+
+  def scenario_params
+    params.require(:scenario).permit(:name, :description, :public, :source_url,
+                                     :tag_fg_color, :tag_bg_color, :icon, agent_ids: [])
   end
 end

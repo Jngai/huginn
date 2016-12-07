@@ -15,6 +15,7 @@ Huginn::Application.routes.draw do
       get :event_descriptions
       post :validate
       post :complete
+      delete :undefined, action: :destroy_undefined
     end
 
     resources :logs, :only => [:index] do
@@ -84,6 +85,10 @@ Huginn::Application.routes.draw do
       member do
         put :deactivate
         put :activate
+        get :switch_to_user
+      end
+      collection do
+        get :switch_back
       end
     end
   end

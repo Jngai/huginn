@@ -7,13 +7,11 @@ class Event < ActiveRecord::Base
   include JSONSerializedField
   include LiquidDroppable
 
-  attr_accessible :lat, :lng, :location, :payload, :user_id, :user, :expires_at
-
   acts_as_mappable
 
   json_serialize :payload
 
-  belongs_to :user
+  belongs_to :user, optional: true
   belongs_to :agent, :counter_cache => true
 
   has_many :agent_logs_as_inbound_event, :class_name => "AgentLog", :foreign_key => :inbound_event_id, :dependent => :nullify
@@ -120,5 +118,9 @@ class EventDrop
 
   def _location_
     @object.location
+  end
+
+  def as_json
+    {location: _location_.as_json, agent: @object.agent.to_liquid.as_json, payload: @payload.as_json, created_at: created_at.as_json}
   end
 end

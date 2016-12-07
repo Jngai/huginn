@@ -92,7 +92,9 @@ module LiquidInterpolatable
 
   def interpolate_string(string, self_object = nil)
     interpolate_with(self_object) do
-      Liquid::Template.parse(string).render!(interpolation_context)
+      catch :as_object do
+        Liquid::Template.parse(string).render!(interpolation_context)
+      end
     end
   end
 
@@ -127,10 +129,11 @@ module LiquidInterpolatable
     # userinfo, host, port, registry, path, opaque, query, and
     # fragment.
     def to_uri(uri, base_uri = nil)
-      if base_uri
-        URI(base_uri) + uri.to_s
+      case base_uri
+      when nil, ''
+        Utils.normalize_uri(uri.to_s)
       else
-        URI(uri.to_s)
+        Utils.normalize_uri(base_uri) + Utils.normalize_uri(uri.to_s)
       end
     rescue URI::Error
       nil
@@ -149,7 +152,7 @@ module LiquidInterpolatable
       else
         url = url.to_s
         begin
-          uri = URI(url)
+          uri = Utils.normalize_uri(url)
         rescue URI::Error
           return url
         end
@@ -170,7 +173,7 @@ module LiquidInterpolatable
             case response.status
             when 301, 302, 303, 307
               if location = response['location']
-                uri += location
+                uri += Utils.normalize_uri(location)
                 next
               end
             end
@@ -185,6 +188,11 @@ module LiquidInterpolatable
       logger.error "Too many rediretions in #{__method__}(#{url.inspect}) [uri=#{uri.to_s.inspect}]"
 
       url
+    end
+
+    # Rebase URIs contained in attributes in a given HTML fragment
+    def rebase_hrefs(input, base_uri)
+      Utils.rebase_hrefs(input, base_uri) rescue input
     end
 
     # Unescape (basic) HTML entities in a string
@@ -223,6 +231,25 @@ module LiquidInterpolatable
     # Serializes data as JSON
     def json(input)
       JSON.dump(input)
+    end
+
+    # Returns a Ruby object
+    #
+    # It can be used as a JSONPath replacement for Agents that only support Liquid:
+    #
+    # Event:   {"something": {"nested": {"data": 1}}}
+    # Liquid:  {{something.nested | as_object}}
+    # Returns: {"data": 1}
+    #
+    # Splitting up a string with Liquid filters and return the Array:
+    #
+    # Event:   {"data": "A,B,C"}}
+    # Liquid:  {{data | split: ',' | as_object}}
+    # Returns: ['A', 'B', 'C']
+    #
+    # as_object ALWAYS has be the last filter in a Liquid expression!
+    def as_object(object)
+      throw :as_object, object.as_json
     end
 
     private

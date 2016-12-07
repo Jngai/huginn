@@ -33,7 +33,7 @@ describe Agents::PostAgent do
     stub_request(:any, /:/).to_return { |request|
       method = request.method
       @requests += 1
-      @sent_requests[method] << req = OpenStruct.new(uri: request.uri)
+      @sent_requests[method] << req = OpenStruct.new(uri: request.uri, headers: request.headers)
       case method
       when :get, :delete
         req.data = request.uri.query
@@ -57,6 +57,11 @@ describe Agents::PostAgent do
   end
 
   it_behaves_like WebRequestConcern
+  it_behaves_like 'FileHandlingConsumer'
+
+  it 'renders the description markdown without errors' do
+    expect { @checker.description }.not_to raise_error
+  end
 
   describe "making requests" do
     it "can make requests of each type" do
@@ -137,6 +142,31 @@ describe Agents::PostAgent do
       expect(uri.path).to eq('/a_variable')
       expect(uri.query).to eq("existing_param=existing_value")
     end
+
+    it "interpolates outgoing headers with the event payload" do
+      @checker.options['headers'] = {
+        "Foo" => "{{ variable }}"
+      }
+      @event.payload = {
+        'variable' => 'a_variable'
+      }
+      @checker.receive([@event])
+      headers = @sent_requests[:post].first.headers
+      expect(headers["Foo"]).to eq("a_variable")
+    end
+
+    it 'makes a multipart request when receiving a file_pointer' do
+      WebMock.reset!
+      stub_request(:post, "http://www.example.com/").
+        with(:body => "-------------RubyMultipartPost\r\nContent-Disposition: form-data; name=\"default\"\r\n\r\nvalue\r\n-------------RubyMultipartPost\r\nContent-Disposition: form-data; name=\"file\"; filename=\"local.path\"\r\nContent-Length: 8\r\nContent-Type: \r\nContent-Transfer-Encoding: binary\r\n\r\ntestdata\r\n-------------RubyMultipartPost--\r\n\r\n",
+             :headers => {'Accept-Encoding'=>'gzip,deflate', 'Content-Length'=>'307', 'Content-Type'=>'multipart/form-data; boundary=-----------RubyMultipartPost', 'User-Agent'=>'Huginn - https://github.com/cantino/huginn'}).
+        to_return(:status => 200, :body => "", :headers => {})
+      event = Event.new(payload: {file_pointer: {agent_id: 111, file: 'test'}})
+      io_mock = mock()
+      mock(@checker).get_io(event) { StringIO.new("testdata") }
+      @checker.options['no_merge'] = true
+      @checker.receive([event])
+    end
   end
 
   describe "#check" do
@@ -197,6 +227,15 @@ describe Agents::PostAgent do
       }.to change { @sent_requests[:post].length }.by(1)
 
       expect(@sent_requests[:post][0].data).to eq('<test>hello</test>')
+    end
+
+    it "interpolates outgoing headers" do
+      @checker.options['headers'] = {
+        "Foo" => "{% credential aws_key %}"
+      }
+      @checker.check
+      headers = @sent_requests[:post].first.headers
+      expect(headers["Foo"]).to eq("2222222222-jane")
     end
 
     describe "emitting events" do

@@ -160,7 +160,7 @@ class AgentsController < ApplicationController
     @agent = current_user.agents.find(params[:id])
 
     respond_to do |format|
-      if @agent.update_attributes(params[:agent])
+      if @agent.update_attributes(agent_params)
         format.html { redirect_back "'#{@agent.name}' was successfully updated.", return: agents_path }
         format.json { render json: @agent, status: :ok, location: agent_path(@agent) }
       else
@@ -196,9 +196,9 @@ class AgentsController < ApplicationController
     build_agent
 
     if @agent.validate_option(params[:attribute])
-      render text: 'ok'
+      render plain: 'ok'
     else
-      render text: 'error', status: 403
+      render plain: 'error', status: 403
     end
   end
 
@@ -206,6 +206,12 @@ class AgentsController < ApplicationController
     build_agent
 
     render json: @agent.complete_option(params[:attribute])
+  end
+
+  def destroy_undefined
+    current_user.undefined_agents.destroy_all
+
+    redirect_back "All undefined Agents have been deleted."
   end
 
   protected
@@ -220,9 +226,9 @@ class AgentsController < ApplicationController
   end
 
   def build_agent
-    @agent = Agent.build_for_type(params[:agent].delete(:type),
+    @agent = Agent.build_for_type(agent_params[:type],
                                   current_user,
-                                  params[:agent])
+                                  agent_params.except(:type))
   end
 
   def initialize_presenter

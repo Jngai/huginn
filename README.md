@@ -64,7 +64,7 @@ If you just want to play around, you can simply fork this repository, then perfo
 * Run `git remote add upstream https://github.com/cantino/huginn.git` to add the main repository as a remote for your fork.
 * Copy `.env.example` to `.env` (`cp .env.example .env`) and edit `.env`, at least updating the `APP_SECRET_TOKEN` variable.
 * Run `bundle` to install dependencies
-* Run `bundle exec rake db:create`, `bundle exec rake db:migrate`, and then `bundle exec rake db:seed` to create a development MySQL database with some example Agents.
+* Run `bundle exec rake db:create`, `bundle exec rake db:migrate`, and then `bundle exec rake db:seed` to create a development database with some example Agents.
 * Run `bundle exec foreman start`, visit [http://localhost:3000/][localhost], and login with the username of `admin` and the password of `password`.
 * Setup some Agents!
 * Read the [wiki][wiki] for usage examples and to get started making new Agents.
@@ -79,16 +79,6 @@ If you need more detailed instructions, see the [Novice setup guide][novice-setu
 [localhost]: http://localhost:3000/
 [wiki]: https://github.com/cantino/huginn/wiki
 [novice-setup-guide]: https://github.com/cantino/huginn/wiki/Novice-setup-guide
-
-### Nitrous Quickstart
-
-You can quickly create a free development environment for this Huginn project in the cloud on www.nitrous.io:
-
-<a href="https://www.nitrous.io/quickstart?repo=https://github.com/cantino/huginn">
-  <img src="https://nitrous-image-icons.s3.amazonaws.com/quickstart.png" alt="Nitrous Quickstart" width=142 height=34>
-</a>
-
-In the IDE, start Huginn via `Run > Start Huginn` and access your site via `Preview > 3000`.
 
 ### Develop
 
@@ -133,5 +123,5 @@ We assume your deployment will run over SSL. This is a very good idea! However, 
 
 Huginn is provided under the MIT License.
 
-[![Build Status](https://travis-ci.org/cantino/huginn.svg)](https://travis-ci.org/cantino/huginn) [![Coverage Status](https://coveralls.io/repos/cantino/huginn/badge.svg)](https://coveralls.io/r/cantino/huginn) [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/cantino/huginn/trend.png)](https://bitdeli.com/free "Bitdeli Badge") [![Dependency Status](https://gemnasium.com/cantino/huginn.svg)](https://gemnasium.com/cantino/huginn) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=282580)](https://www.bountysource.com/trackers/282580-huginn?utm_source=282580&utm_medium=shield&utm_campaign=TRACKER_BADGE)
+[![Build Status](https://travis-ci.org/cantino/huginn.svg)](https://travis-ci.org/cantino/huginn) [![Coverage Status](https://coveralls.io/repos/cantino/huginn/badge.svg)](https://coveralls.io/r/cantino/huginn) [![Dependency Status](https://gemnasium.com/cantino/huginn.svg)](https://gemnasium.com/cantino/huginn) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=282580)](https://www.bountysource.com/trackers/282580-huginn?utm_source=282580&utm_medium=shield&utm_campaign=TRACKER_BADGE)
 

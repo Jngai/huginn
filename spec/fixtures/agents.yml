@@ -10,8 +10,8 @@ jane_website_agent:
                  :expected_update_period_in_days => 2,
                  :mode => :on_change,
                  :extract => {
-                     :title => {:css => "item title", :value => './/text()'},
-                     :url => {:css => "item link", :value => './/text()'}
+                     :title => {:css => "item title", :value => 'string(.)'},
+                     :url => {:css => "item link", :value => 'string(.)'}
                  }
                }.to_json.inspect %>
 
@@ -59,6 +59,14 @@ bob_weather_agent:
   guid: <%= SecureRandom.hex %>
   keep_events_for: <%= 45.days %>
   options: <%= { :location => 94102, :lat => 37.779329, :lng => -122.41915, :api_key => 'test' }.to_json.inspect %>
+
+bob_formatting_agent:
+  type: Agents::EventFormattingAgent
+  user: bob
+  name: "Formatting Agent"
+  guid: <%= SecureRandom.hex %>
+  keep_events_for: <%= 45.days %>
+  options: <%= { instructions: {}, mode: 'clean' }.to_json.inspect %>
 
 jane_weather_agent:
   type: Agents::WeatherAgent
@@ -136,14 +144,28 @@ bob_manual_event_agent:
 bob_basecamp_agent:
   type: Agents::BasecampAgent
   user: bob
+  name: "bob basecamp agent"
   service: generic
+  guid: <%= SecureRandom.hex %>
+  options: <%= {
+      :project_id => "12345",
+    }.to_json.inspect %>
+
+bob_csv_agent:
+  type: Agents::CsvAgent
+  user: bob
+  name: "Bob's CsvAgent"
   guid: <%= SecureRandom.hex %>
 
 jane_basecamp_agent:
   type: Agents::BasecampAgent
   user: jane
+  name: "jane basecamp agent"
   service: generic
   guid: <%= SecureRandom.hex %>
+  options: <%= {
+      :project_id => "12345",
+    }.to_json.inspect %>
 
 
 bob_data_output_agent:
