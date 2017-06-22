@@ -31,6 +31,7 @@ module Agents
           * `force_encoding` - Set `force_encoding` to an encoding name if the website is known to respond with a missing, invalid or wrong charset in the Content-Type header.  Note that a text content without a charset is taken as encoded in UTF-8 (not ISO-8859-1).
           * `user_agent` - A custom User-Agent name (default: "Faraday v#{Faraday::VERSION}").
           * `max_events_per_run` - Limit number of events created (items parsed) per run for feed.
+          * `remembered_id_count` - Number of IDs to keep track of and avoid re-emitting (default: 500).
 
         # Ordering Events
 
@@ -133,6 +134,10 @@ module Agents
         errors.add(:base, "Please provide 'expected_update_period_in_days' to indicate how many days can pass without an update before this Agent is considered to not be working")
       end
 
+      if options['remembered_id_count'].present? && options['remembered_id_count'].to_i < 1
+        errors.add(:base, "Please provide 'remembered_id_count' as a number bigger than 0 indicating how many IDs should be saved to distinguish between new and old IDs in RSS feeds. Delete option to use default (500).")
+      end
+
       validate_web_request_options!
       validate_events_order
     end
@@ -169,17 +174,16 @@ module Agents
         end
       end
 
-      created_event_count = 0
-      sort_events(new_events).each.with_index do |event, index|
-        entry_id = event.payload[:id]
-        if check_and_track(entry_id)
-          unless max_events && max_events > 0 && index >= max_events
-            created_event_count += 1
-            create_event(event)
-          end
-        end
-      end
-      log "Fetched #{urls.to_sentence} and created #{created_event_count} event(s)."
+      events = sort_events(new_events).select.with_index { |event, index|
+        check_and_track(event.payload[:id]) &&
+          !(max_events && max_events > 0 && index >= max_events)
+      }
+      create_events(events)
+      log "Fetched #{urls.to_sentence} and created #{events.size} event(s)."
+    end
+
+    def remembered_id_count
+      (options['remembered_id_count'].presence || 500).to_i
     end
 
     def check_and_track(entry_id)
@@ -188,7 +192,7 @@ module Agents
         false
       else
         memory['seen_ids'].unshift entry_id
-        memory['seen_ids'].pop if memory['seen_ids'].length > 500
+        memory['seen_ids'].pop(memory['seen_ids'].length - remembered_id_count) if memory['seen_ids'].length > remembered_id_count
         true
       end
     end
@@ -206,7 +210,7 @@ module Agents
       else
         # Encoding is already known, so do not let the parser detect
         # it from the XML declaration in the content.
-        body.sub!(/(\A\u{FEFF}?\s*<\?xml(?:\s+\w+\s*=\s*(['"]).*?\2)*)\s+encoding\s*=\s*(['"]).*?\3/, '\\1')
+        body.sub!(/(?<noenc>\A\u{FEFF}?\s*<\?xml(?:\s+\w+(?<av>\s*=\s*(?:'[^']*'|"[^"]*")))*?)\s+encoding\g<av>/, '\\k<noenc>')
       end
       body
     end

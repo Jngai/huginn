@@ -563,7 +563,7 @@ describe Agent do
         agent.options = 5
         expect(agent.options["hi"]).to eq(2)
         expect(agent).to have(1).errors_on(:options)
-        expect(agent.errors_on(:options)).to include("cannot be set to an instance of Fixnum")
+        expect(agent.errors_on(:options)).to include("cannot be set to an instance of #{2.class}")  # Integer (ruby >=2.4) or Fixnum (ruby <2.4)
       end
 
       it "should not allow source agents owned by other people" do
@@ -1013,11 +1013,11 @@ describe AgentDrop do
     expect(@efa.to_liquid.class).to be(AgentDrop)
   end
 
-  it 'should have .type and .name' do
-    t = '{{agent.type}}: {{agent.name}}'
-    expect(interpolate(t, @wsa1)).to eq('WebsiteAgent: XKCD')
-    expect(interpolate(t, @wsa2)).to eq('WebsiteAgent: Dilbert')
-    expect(interpolate(t, @efa)).to eq('EventFormattingAgent: Formatter')
+  it 'should have .id, .type and .name' do
+    t = '[{{agent.id}}]{{agent.type}}: {{agent.name}}'
+    expect(interpolate(t, @wsa1)).to eq("[#{@wsa1.id}]WebsiteAgent: XKCD")
+    expect(interpolate(t, @wsa2)).to eq("[#{@wsa2.id}]WebsiteAgent: Dilbert")
+    expect(interpolate(t, @efa)).to eq("[#{@efa.id}]EventFormattingAgent: Formatter")
   end
 
   it 'should have .options' do
