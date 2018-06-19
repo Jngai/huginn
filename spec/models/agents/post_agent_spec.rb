@@ -161,7 +161,7 @@ describe Agents::PostAgent do
         with(headers: {
                'Accept-Encoding' => 'gzip,deflate',
                'Content-Type' => /\Amultipart\/form-data; boundary=/,
-               'User-Agent' => 'Huginn - https://github.com/cantino/huginn'
+               'User-Agent' => 'Huginn - https://github.com/huginn/huginn'
         }) { |request|
         qboundary = Regexp.quote(request.headers['Content-Type'][/ boundary=(.+)/, 1])
         /\A--#{qboundary}\r\nContent-Disposition: form-data; name="default"\r\n\r\nvalue\r\n--#{qboundary}\r\nContent-Disposition: form-data; name="file"; filename="local.path"\r\nContent-Length: 8\r\nContent-Type: \r\nContent-Transfer-Encoding: binary\r\n\r\ntestdata\r\n--#{qboundary}--\r\n\r\n\z/ === request.body
@@ -292,6 +292,20 @@ describe Agents::PostAgent do
           @checker.check
           expect(@checker.events.last.payload['headers']).to eq({ 'content_type' => 'text/html' })
         end
+
+        context "when output_mode is set to 'merge'" do
+          before do
+            @checker.options['output_mode'] = 'merge'
+            @checker.save!
+          end
+
+          it "emits the received event" do
+            @checker.receive([@event])
+            @checker.check
+            expect(@checker.events.last.payload['somekey']).to eq('somevalue')
+            expect(@checker.events.last.payload['someotherkey']).to eq({ 'somekey' => 'value' })
+          end
+        end
       end
     end
   end
@@ -368,17 +382,17 @@ describe Agents::PostAgent do
       @checker.options['payload'] = ""
       expect(@checker).to be_valid
 
-      @checker.options['payload'] = "hello"
-      expect(@checker).not_to be_valid
-
       @checker.options['payload'] = ["foo", "bar"]
+      expect(@checker).to be_valid
+
+      @checker.options['payload'] = "hello"
       expect(@checker).not_to be_valid
 
       @checker.options['payload'] = { 'this' => 'that' }
       expect(@checker).to be_valid
     end
 
-    it "should not validate payload as a hash if content_type includes a MIME type and method is not get or delete" do
+    it "should not validate payload as a hash or an array if content_type includes a MIME type and method is not get or delete" do
       @checker.options['no_merge'] = 'true'
       @checker.options['content_type'] = 'text/xml'
       @checker.options['payload'] = "test"
@@ -428,6 +442,32 @@ describe Agents::PostAgent do
       expect(@checker).to be_valid
 
       @checker.options['emit_events'] = true
+      expect(@checker).to be_valid
+    end
+
+    it "requires output_mode to be 'clean' or 'merge', if present" do
+      @checker.options['output_mode'] = 'what?'
+      expect(@checker).not_to be_valid
+
+      @checker.options.delete('output_mode')
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = 'clean'
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = 'merge'
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = :clean
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = :merge
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = '{{somekey}}'
+      expect(@checker).to be_valid
+
+      @checker.options['output_mode'] = "{% if key == 'foo' %}merge{% else %}clean{% endif %}"
       expect(@checker).to be_valid
     end
   end
